@@ -64,6 +64,7 @@ class Vendor(Base):
     business_name = Column(String(255), nullable=False)
     bio = Column(Text, nullable=True)
     phone_number = Column(String(20), nullable=False)
+    delivery_info = Column(Text, nullable=True)
     logo_url = Column(Text, nullable=True)
     is_approved = Column(Boolean, default=True)
     is_banned = Column(Boolean, default=False)  # Admin Security Gate Check
@@ -472,6 +473,7 @@ async def verify_vendor_session(request: Request, db: Session = Depends(get_db))
         "has_payout_setup": has_payout,
         "business_name": vendor.business_name,
         "bio": vendor.bio,
+        "delivery_info": vendor.delivery_info,
         "phone_number": vendor.phone_number,
         "logo_url": vendor.logo_url,
         "direct_link": f"https://t.me/{BOT_USERNAME}/app?startapp={vendor.vendor_id}"
@@ -483,6 +485,7 @@ async def register_or_edit_vendor(
     business_name: str = Form(...),
     bio: str = Form(""),
     phone_number: str = Form(...),
+    delivery_info: str = Form(""),
     bank_code: Optional[str] = Form(None),
     account_number: Optional[str] = Form(None),
     logo: Optional[UploadFile] = File(None),
@@ -524,6 +527,7 @@ async def register_or_edit_vendor(
         vendor.business_name = business_name
         vendor.bio = bio
         vendor.phone_number = clean_phone
+        vendor.delivery_info = delivery_info
         if bank_code:
             vendor.bank_code = bank_code
             vendor.account_number = account_number
@@ -539,6 +543,7 @@ async def register_or_edit_vendor(
             business_name=business_name, 
             bio=bio, 
             phone_number=clean_phone, 
+            delivery_info=delivery_info,
             logo_url=logo_data_url,
             bank_code=bank_code,
             account_number=account_number,
@@ -673,7 +678,7 @@ async def load_storefront_configuration(vendor_id: Optional[int] = None, db: Ses
         products = db.query(Product).filter(Product.vendor_id == vendor_id).order_by(Product.id.desc()).all()
         return {
             "mode": "store",
-            "vendor": {"name": v.business_name, "bio": v.bio, "logo": v.logo_url, "id": v.vendor_id},
+            "vendor": {"name": v.business_name, "bio": v.bio, "logo": v.logo_url, "id": v.vendor_id, "phone": v.phone_number, "delivery_info": v.delivery_info},
             "products": [{"id": p.id, "title": p.title, "price": p.price, "quantity": p.quantity, "sizes": p.sizes, "category": p.category, "image_url": p.image_url} for p in products]
         }
     
@@ -684,7 +689,7 @@ async def load_storefront_configuration(vendor_id: Optional[int] = None, db: Ses
     products = db.query(Product).filter(Product.vendor_id.in_(active_vendor_ids)).order_by(Product.id.desc()).limit(150).all()
     return {
         "mode": "marketplace",
-        "vendors": [{"id": ven.vendor_id, "name": ven.business_name, "logo": ven.logo_url} for ven in active_vendors],
+        "vendors": [{"id": ven.vendor_id, "name": ven.business_name, "logo": ven.logo_url, "phone": ven.phone_number} for ven in active_vendors],
         "products": [{"id": p.id, "vendor_id": p.vendor_id, "title": p.title, "price": p.price, "quantity": p.quantity, "sizes": p.sizes, "category": p.category, "image_url": p.image_url} for p in products]
     }
 
