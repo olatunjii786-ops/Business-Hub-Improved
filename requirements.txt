@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+python-telegram-bot
+aiogram==3.13.1
+sqlalchemy
+psycopg2-binary
+httpx
+python-multipart
+jinja2
