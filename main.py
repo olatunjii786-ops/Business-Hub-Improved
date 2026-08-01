@@ -398,27 +398,27 @@ async def telegram_webhook_endpoint(request: Request, db: Session = Depends(get_
                     # Tailored menu if the admin runs /start
                     if str(chat_id) == str(ADMIN_ID):
                         welcome_msg = (
-                            f"⚡ *Welcome Back, Chief System Admin.*\n\n"
+                            f"⚡ *Welcome to businessHub🛍️, Are you a seller or a buyer, you've found the right place🫰🏼🤗.*\n\n"
                             f"Ecosystem control parameters are healthy. Select your destination workspace below:"
                         )
                         keyboard = {
                             "inline_keyboard": [
-                                [{"text": "📊 Open System Control Deck", "web_app": {"url": f"{APP_URL}/admin/dashboard"}}],
+                                [{"text": "📊 Open Admin dashboard", "web_app": {"url": f"{APP_URL}/admin/dashboard"}}],
                                 [{"text": "🛍 Open Global Marketplace", "web_app": {"url": f"{APP_URL}/shop"}}],
-                                [{"text": "🛠 Open Vendor Workspace Console", "web_app": {"url": f"{APP_URL}/vendor"}}]
+                                [{"text": "🛠 Open Seller workspace", "web_app": {"url": f"{APP_URL}/vendor"}}]
                             ]
                         }
                     # Standard menu for all other users/vendors
                     else:
                         welcome_msg = (
                             f"👋 *Welcome to the Business Hub Ecosystem!*\n\n"
-                            f"Are you a customer ready to shop top-tier products, or a vendor looking to manage your boutique automation?\n\n"
+                            f"Are you a customer ready to shop top-tier products, or a vendor looking to manage your store automation?\n\n"
                             f"Launch your workspace window instantly using the control deck below:"
                         )
                         keyboard = {
                             "inline_keyboard": [
                                 [{"text": "🛍 Open Global Marketplace", "web_app": {"url": f"{APP_URL}/shop"}}],
-                                [{"text": "🛠 Open Vendor Workspace Console", "web_app": {"url": f"{APP_URL}/vendor"}}]
+                                [{"text": "🛠 Open seller Workspace", "web_app": {"url": f"{APP_URL}/vendor"}}]
                             ]
                         }
                 
