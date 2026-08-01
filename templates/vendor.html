@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Vendor Workspace Console</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --accent: var(--tg-theme-button-color, #007aff);
+            --accent-text: var(--tg-theme-button-text-color, #ffffff);
+            --bg: var(--tg-theme-bg-color, #f5f5f7);
+            --card-bg: var(--tg-theme-secondary-bg-color, #ffffff);
+            --text: var(--tg-theme-text-color, #1c1c1e);
+            --hint: var(--tg-theme-hint-color, #8e8e93);
+            --radius-lg: 24px;
+            --radius-md: 16px;
+            --transition-fluid: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0; padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            padding-bottom: 60px;
+            overflow-x: hidden;
+        }
+
+        #splash-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 9999;
+            transition: var(--transition-fluid);
+        }
+        .splash-logo {
+            font-size: 32px; font-weight: 800; letter-spacing: -1px;
+            background: linear-gradient(90deg, var(--text) 0%, var(--hint) 50%, var(--text) 100%);
+            background-size: 200% auto; -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent; animation: shimmer 2.5s linear infinite;
+        }
+        @keyframes shimmer { 0% { background-position: 0% center; } 100% { background-position: 200% center; } }
+
+        .tab-bar {
+            display: flex; background: var(--card-bg); padding: 4px;
+            border-radius: var(--radius-md); margin: 16px; gap: 4px;
+        }
+        .tab-bar button {
+            flex: 1; padding: 12px; border: none; background: transparent;
+            color: var(--hint); font-weight: 700; font-size: 13px;
+            border-radius: 12px; cursor: pointer; transition: var(--transition-fluid);
+        }
+        .tab-bar button.active { background: var(--bg); color: var(--text); }
+
+        .view-panel { display: none; padding: 0 16px; }
+        .view-panel.active { display: block; }
+
+        .form-card {
+            background: var(--card-bg); padding: 20px; border-radius: var(--radius-lg);
+            margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.01);
+        }
+        .form-title { font-size: 18px; font-weight: 800; margin-bottom: 16px; letter-spacing: -0.3px; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: var(--hint); }
+        .form-control {
+            width: 100%; padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--bg);
+            background: var(--bg); color: var(--text); font-size: 14px; transition: var(--transition-fluid);
+        }
+        .form-control:focus { border-color: var(--accent); outline: none; }
+        
+        .action-submit-btn {
+            width: 100%; padding: 14px; border: none; background: var(--accent);
+            color: var(--accent-text); border-radius: var(--radius-md); font-weight: 700;
+            font-size: 15px; cursor: pointer; transition: var(--transition-fluid);
+        }
+        .action-submit-btn:disabled { background: var(--hint); opacity: 0.6; cursor: not-allowed; }
+
+        .item-list-row { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+        .inventory-card {
+            background: var(--card-bg); padding: 12px; border-radius: var(--radius-md);
+            display: flex; gap: 12px; align-items: center; position: relative;
+        }
+        .inventory-img { width: 64px; height: 64px; border-radius: 12px; object-fit: cover; background: var(--bg); }
+        .inventory-details { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+        .inventory-title { font-weight: 600; font-size: 14px; }
+        .inventory-meta { font-size: 12px; color: var(--hint); }
+        .inventory-price { font-weight: 700; font-size: 15px; color: var(--accent); }
+
+        .btn-group-sm { display: flex; gap: 6px; margin-top: 4px; }
+        .btn-sm { padding: 4px 10px; font-size: 11px; font-weight: 600; border-radius: 6px; border: none; cursor: pointer; }
+        .btn-edit { background: var(--bg); color: var(--text); }
+        .btn-delete { background: rgba(255,59,48,0.1); color: #ff3b30; }
+
+        .order-card {
+            background: var(--card-bg); padding: 16px; border-radius: var(--radius-lg);
+            margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px;
+        }
+        .order-top { display: flex; justify-content: space-between; align-items: center; }
+        .order-code { font-weight: 700; font-size: 13px; color: var(--hint); }
+        .order-status-badge { font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 4px 8px; border-radius: 8px; }
+        
+        .customer-memo-block { font-size: 13px; line-height: 1.4; background: var(--bg); padding: 10px; border-radius: var(--radius-md); }
+        .order-select-status { padding: 8px; border-radius: 8px; background: var(--bg); color: var(--text); border: none; font-size: 12px; font-weight: 600; width: 100%; }
+
+        .modal-backdrop {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+            display: flex; justify-content: center; align-items: center; z-index: 999;
+            opacity: 0; pointer-events: none; transition: var(--transition-fluid);
+        }
+        .modal-backdrop.active { opacity: 1; pointer-events: auto; }
+        .modal-window {
+            background: var(--card-bg); width: 90%; max-width: 400px; padding: 24px;
+            border-radius: var(--radius-lg); box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            transform: translateY(20px); transition: var(--transition-fluid);
+        }
+        .modal-backdrop.active .modal-window { transform: translateY(0); }
+        .section-divider { border: none; border-top: 1px dashed var(--bg); margin: 16px 0; }
+    </style>
+</head>
+<body>
+
+    <div id="splash-screen">
+        <div class="splash-logo">BUSINESS HUB</div>
+    </div>
+
+    <div id="registration-terminal" class="view-panel" style="padding:24px 16px;">
+        <div class="form-card">
+            <h2 class="form-title">Create Vendor Account</h2>
+            <form id="setup-vendor-form" onsubmit="submitVendorProfile(event, false)">
+                <div class="form-group">
+                    <label>Boutique Business Name</label>
+                    <input type="text" id="reg-name" class="form-control" placeholder="e.g. Inies Bags & Clothing" required>
+                </div>
+                <div class="form-group">
+                    <label>WhatsApp Business Phone Line</label>
+                    <input type="tel" id="reg-phone" class="form-control" placeholder="e.g. 08031234567" required>
+                </div>
+                <div class="form-group">
+                    <label>Store Bio / Headline Description</label>
+                    <textarea id="reg-bio" class="form-control" placeholder="Tell customers what you sell..." rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Store Brand Logo Image File</label>
+                    <input type="file" id="reg-logo" class="form-control" accept="image/*">
+                </div>
+
+                <div class="section-divider"></div>
+                <h3 style="font-size: 14px; font-weight: 800; color: var(--accent); margin-bottom: 12px; text-transform: uppercase;">🏦 Bank Settlement Account</h3>
+
+                <div class="form-group">
+                    <label>Settlement Bank Name</label>
+                    <select id="reg-bank-code" class="form-control" required>
+                        <option value="">-- Loading Banks --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>10-Digit NUBAN Account Number</label>
+                    <input type="text" id="reg-account-no" maxlength="10" class="form-control" placeholder="0123456789" required style="letter-spacing: 2px; font-size: 16px; text-align: center;">
+                </div>
+
+                <button type="submit" class="action-submit-btn" id="btn-reg-submit">Initialize Vendor Workspace</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="console-terminal" style="display:none;">
+        <div class="tab-bar">
+            <button class="tab-btn active" onclick="switchTab('products-tab', this)">Inventory</button>
+            <button class="tab-btn" onclick="switchTab('orders-tab', this)">Orders</button>
+            <button class="tab-btn" onclick="switchTab('profile-tab', this)">Settings</button>
+        </div>
+
+        <div id="products-tab" class="view-panel active">
+            <div class="form-card">
+                <h3 class="form-title" id="product-form-title">Add New Product</h3>
+                <form id="product-submission-form" onsubmit="submitProductForm(event)">
+                    <input type="hidden" id="form-product-id" value="">
+                    <div class="form-group">
+                        <label>Product Title Name</label>
+                        <input type="text" id="prod-title" class="form-control" placeholder="e.g. Luxury Nike Sneakers" required>
+                    </div>
+                    <div style="display:flex; gap:12px;">
+                        <div class="form-group" style="flex:1;">
+                            <label>Price Tag (₦)</label>
+                            <input type="number" id="prod-price" class="form-control" placeholder="55000" required>
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label>Stock Qty</label>
+                            <input type="number" id="prod-qty" class="form-control" placeholder="5" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Category Sorting Pill Tag</label>
+                        <input type="text" id="prod-category" class="form-control" placeholder="e.g. Shoes, Clothes, Bags" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Available Sizing Variants (Comma separated)</label>
+                        <input type="text" id="prod-sizes" class="form-control" placeholder="e.g. 40, 41, 42, XL, L">
+                    </div>
+                    <div class="form-group">
+                        <label>Product Display Image File</label>
+                        <input type="file" id="prod-image" class="form-control" accept="image/*">
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <button type="button" id="btn-cancel-edit" class="action-submit-btn" style="background:var(--bg); color:var(--text); display:none;" onclick="resetProductFormLayout()">Cancel</button>
+                        <button type="submit" class="action-submit-btn" style="flex:2;">Save Product Entry</button>
+                    </div>
+                </form>
+            </div>
+
+            <h3 style="font-size:16px; font-weight:700; margin-bottom:12px;">Active Catalog Listings</h3>
+            <div class="item-list-row" id="inventory-feed-container"></div>
+        </div>
+
+        <div id="orders-tab" class="view-panel">
+            <h3 style="font-size:16px; font-weight:700; margin-bottom:12px;">Incoming Order Manifests</h3>
+            <div id="orders-feed-container"></div>
+        </div>
+
+        <div id="profile-tab" class="view-panel">
+            <div class="form-card" style="text-align:center;">
+                <img src="" id="prof-preview-logo" style="width:72px; height:72px; border-radius:50%; object-fit:cover; background:var(--bg); margin-bottom:8px; border:2px solid var(--accent);">
+                <h3 id="prof-preview-name" style="font-size:18px; font-weight:800;">Boutique Name</h3>
+                <p id="prof-preview-link" style="font-size:12px; color:var(--accent); font-weight:600; margin-top:4px; word-break:break-all; cursor:pointer;" onclick="copyBoutiqueShareLink()">Deep Link Loading...</p>
+            </div>
+
+            <div class="form-card">
+                <h3 class="form-title">Modify Store Branding</h3>
+                <form id="edit-vendor-form" onsubmit="submitVendorProfile(event, true)">
+                    <div class="form-group">
+                        <label>Boutique Business Name</label>
+                        <input type="text" id="edit-name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>WhatsApp Line</label>
+                        <input type="tel" id="edit-phone" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Store Bio Paragraph</label>
+                        <textarea id="edit-bio" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Update Logo File</label>
+                        <input type="file" id="edit-logo" class="form-control" accept="image/*">
+                    </div>
+
+                    <div class="section-divider"></div>
+                    <h3 style="font-size: 13px; font-weight: 800; color: var(--hint); margin-bottom: 12px; text-transform: uppercase;">🔒 Bank Settlement (Locked)</h3>
+                    <p style="font-size: 12px; color: var(--hint); margin-bottom: 12px; line-height: 1.4;">Settlement details are linked to your secure Flutterwave subaccount setup. Contact support to update routing information.</p>
+
+                    <button type="submit" class="action-submit-btn" id="btn-edit-submit">Apply Brand Updates</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="payout-upgrade-modal" class="modal-backdrop">
+        <div class="modal-window">
+            <div style="text-align: center; margin-bottom: 16px;">
+                <span style="font-size: 36px;">🏦</span>
+                <h3 style="font-size: 18px; font-weight: 800; margin-top: 8px;">Activate Automated Payouts</h3>
+                <p style="font-size: 12px; color: var(--hint); margin-top: 4px; line-height: 1.4;">We've enabled secure Card & Bank Transfer automation. Please supply your payout routing properties to open up the core store desk tools.</p>
+            </div>
+            <form onsubmit="handlePayoutUpgrade(event)">
+                <div class="form-group">
+                    <label>Settlement Bank Name</label>
+                    <select id="upgrade-bank-code" class="form-control" required>
+                        <option value="">-- Loading Banks --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>10-Digit Account Number</label>
+                    <input type="text" id="upgrade-account-no" maxlength="10" class="form-control" placeholder="0123456789" required style="letter-spacing: 2px; font-size: 16px; text-align: center;">
+                </div>
+                <button type="submit" id="btn-upgrade-submit" class="action-submit-btn">Verify & Complete Settlement Update</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand(); tg.ready();
+
+        let vendorMetaObj = null;
+        let globalShareLinkString = "";
+        let merchantCatalogCache = {};
+
+        async function populateBankSelectors() {
+            const regSelect = document.getElementById("reg-bank-code");
+            const upgradeSelect = document.getElementById("upgrade-bank-code");
+            
+            try {
+                const res = await fetch("/api/banks");
+                const flwBanks = await res.json();
+                
+                if (flwBanks && flwBanks.length > 0) {
+                    regSelect.innerHTML = '<option value="">-- Select Bank --</option>';
+                    upgradeSelect.innerHTML = '<option value="">-- Select Bank --</option>';
+                    
+                    flwBanks.sort((a, b) => a.name.localeCompare(b.name));
+                    
+                    flwBanks.forEach(bank => {
+                        const optReg = document.createElement("option");
+                        optReg.value = bank.code;
+                        optReg.textContent = bank.name;
+                        regSelect.appendChild(optReg);
+
+                        const optUpgrade = document.createElement("option");
+                        optUpgrade.value = bank.code;
+                        optUpgrade.textContent = bank.name;
+                        upgradeSelect.appendChild(optUpgrade);
+                    });
+                    console.log(`Dynamic tracking loaded: ${flwBanks.length} active banks synced.`);
+                } else {
+                    throw new Error("Empty bank list received.");
+                }
+            } catch (err) {
+                console.error("Failed to populate dynamic bank details list:", err);
+                // Resilient local UI backup layout if server endpoint fails to complete
+                const defaultOptions = '<option value="">-- Choose Bank --</option><option value="100005">OPay Digital Services</option><option value="090405">Moniepoint MFB</option><option value="058">GTBank</option><option value="011">First Bank</option>';
+                regSelect.innerHTML = defaultOptions;
+                upgradeSelect.innerHTML = defaultOptions;
+            }
+        }
+
+        async function initConsole() {
+            try {
+                const res = await fetch("/api/vendor/me", {
+                    headers: { "X-Telegram-Init-Data": tg.initData }
+                });
+                const data = await res.json();
+
+                document.getElementById("splash-screen").style.opacity = "0";
+                setTimeout(() => document.getElementById("splash-screen").style.display = "none", 350);
+
+                if (data.registered) {
+                    vendorMetaObj = data;
+                    globalShareLinkString = data.direct_link;
+                    
+                    document.getElementById("registration-terminal").style.display = "none";
+                    document.getElementById("console-terminal").style.display = "block";
+                    
+                    document.getElementById("edit-name").value = data.business_name;
+                    document.getElementById("edit-phone").value = data.phone_number;
+                    document.getElementById("edit-bio").value = data.bio || "";
+                    document.getElementById("prof-preview-name").innerText = data.business_name;
+                    document.getElementById("prof-preview-logo").src = data.logo_url || "";
+                    document.getElementById("prof-preview-link").innerText = `🔗 Copy Shop Deep-Link`;
+
+                    if (!data.has_payout_setup) {
+                        document.getElementById("payout-upgrade-modal").classList.add("active");
+                    }
+
+                    loadVendorCatalogListings();
+                    loadIncomingVendorOrders();
+                } else {
+                    document.getElementById("registration-terminal").style.display = "block";
+                    document.getElementById("console-terminal").style.display = "none";
+                }
+            } catch (err) {
+                console.error("Console terminal sync failure trace:", err);
+                document.getElementById("splash-screen").style.display = "none";
+                document.getElementById("registration-terminal").style.display = "block";
+            }
+        }
+
+        function switchTab(tabId, btn) {
+            tg.HapticFeedback.impactOccurred('light');
+            document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
+            document.querySelectorAll(".tab-bar button").forEach(b => b.classList.remove("active"));
+            
+            document.getElementById(tabId).classList.add("active");
+            btn.classList.add("active");
+        }
+
+        function copyBoutiqueShareLink() {
+            navigator.clipboard.writeText(globalShareLinkString);
+            tg.showAlert("Boutique customer deep-link copied straight to clipboard!");
+        }
+
+        async function submitVendorProfile(e, isEdit) {
+            e.preventDefault();
+            tg.HapticFeedback.impactOccurred('medium');
+            
+            const prefix = isEdit ? "edit-" : "reg-";
+            const btnSubmit = document.getElementById(`btn-${isEdit ? 'edit' : 'reg'}-submit`);
+            
+            btnSubmit.disabled = true;
+            btnSubmit.innerText = "Processing Details...";
+            
+            const formData = new FormData();
+            formData.append("business_name", document.getElementById(`${prefix}name`).value);
+            formData.append("phone_number", document.getElementById(`${prefix}phone`).value);
+            formData.append("bio", document.getElementById(`${prefix}bio`).value);
+            
+            if (!isEdit) {
+                formData.append("bank_code", document.getElementById("reg-bank-code").value);
+                formData.append("account_number", document.getElementById("reg-account-no").value);
+            }
+            
+            const fileInput = document.getElementById(`${prefix}logo`);
+            if (fileInput.files.length > 0) {
+                formData.append("logo", fileInput.files[0]);
+            }
+
+            try {
+                const res = await fetch("/api/vendor/register", {
+                    method: "POST",
+                    headers: { "X-Telegram-Init-Data": tg.initData },
+                    body: formData
+                });
+                
+                const responseData = await res.json();
+                
+                if (res.ok) {
+                    tg.showAlert(isEdit ? "Branding metrics applied successfully!" : "Account created successfully!");
+                    window.location.reload();
+                } else {
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerText = isEdit ? "Apply Brand Updates" : "Initialize Vendor Workspace";
+                    tg.showAlert(responseData.detail || "Error encountered during processing.");
+                }
+            } catch (err) {
+                btnSubmit.disabled = false;
+                btnSubmit.innerText = isEdit ? "Apply Brand Updates" : "Initialize Vendor Workspace";
+                tg.showAlert("Server network registration request error occurred.");
+            }
+        }
+
+        async function handlePayoutUpgrade(e) {
+            e.preventDefault();
+            tg.HapticFeedback.impactOccurred('medium');
+            
+            const btn = document.getElementById("btn-upgrade-submit");
+            btn.disabled = true;
+            btn.innerText = "Validating Bank Account...";
+
+            const payload = {
+                bank_code: document.getElementById("upgrade-bank-code").value,
+                account_number: document.getElementById("upgrade-account-no").value
+            };
+
+            try {
+                const res = await fetch("/api/vendor/upgrade-payout", {
+                    method: "POST",
+                    headers: { 
+                        "X-Telegram-Init-Data": tg.initData,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await res.json();
+                if (res.ok) {
+                    tg.showAlert("Payout account validation successful!");
+                    document.getElementById("payout-upgrade-modal").classList.remove("active");
+                    window.location.reload();
+                } else {
+                    btn.disabled = false;
+                    btn.innerText = "Verify & Complete Settlement Update";
+                    tg.showAlert(data.detail || "Bank routing check failure.");
+                }
+            } catch (err) {
+                btn.disabled = false;
+                btn.innerText = "Verify & Complete Settlement Update";
+                tg.showAlert("Network verification pipe channel drop failure.");
+            }
+        }
+
+        async function submitProductForm(e) {
+            e.preventDefault();
+            tg.HapticFeedback.impactOccurred('medium');
+
+            const targetProductId = document.getElementById("form-product-id").value;
+            const isEditMode = targetProductId !== "";
+            
+            const url = isEditMode ? `/api/products/${targetProductId}/edit` : "/api/products";
+            const formData = new FormData();
+            formData.append("title", document.getElementById("prod-title").value);
+            formData.append("price", document.getElementById("prod-price").value);
+            formData.append("quantity", document.getElementById("prod-qty").value);
+            formData.append("category", document.getElementById("prod-category").value);
+            formData.append("sizes", document.getElementById("prod-sizes").value);
+
+            const fileInput = document.getElementById("prod-image");
+            if (fileInput.files.length > 0) {
+                formData.append("image", fileInput.files[0]);
+            }
+
+            try {
+                const res = await fetch(url, {
+                    method: "POST",
+                    headers: { "X-Telegram-Init-Data": tg.initData },
+                    body: formData
+                });
+
+                if (res.ok) {
+                    tg.showAlert(isEditMode ? "Inventory entry updated!" : "New product entry added!");
+                    resetProductFormLayout();
+                    loadVendorCatalogListings();
+                } else {
+                    tg.showAlert("Catalog adjustment sequence processing rejection failure.");
+                }
+            } catch (err) {
+                tg.showAlert("Network data sync block error encountered.");
+            }
+        }
+
+        async function loadVendorCatalogListings() {
+            try {
+                const res = await fetch("/api/vendor/products", {
+                    headers: { "X-Telegram-Init-Data": tg.initData }
+                });
+                const products = await res.json();
+                const container = document.getElementById("inventory-feed-container");
+                container.innerHTML = products.length === 0 ? `<p style="text-align:center; padding:20px; font-size:13px; color:var(--hint);">No products inside store catalog yet.</p>` : "";
+
+                merchantCatalogCache = {};
+
+                products.forEach(p => {
+                    merchantCatalogCache[p.id] = p;
+                    
+                    const card = document.createElement("div");
+                    card.className = "inventory-card";
+                    card.innerHTML = `
+                        <img src="${p.image_url || ''}" class="inventory-img">
+                        <div class="inventory-details">
+                            <span class="inventory-title">${p.title}</span>
+                            <span class="inventory-meta">Qty: <b>${p.quantity}</b> | Cat: ${p.category}</span>
+                            <span class="inventory-price">₦${p.price.toLocaleString()}</span>
+                            <div class="btn-group-sm">
+                                <button class="btn-sm btn-edit" onclick="triggerProductEditState(${p.id})">Modify</button>
+                                <button class="btn-sm btn-delete" onclick="deleteProductEntry(${p.id})">Delete</button>
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (err) { console.error("Catalog retrieval sync break:", err); }
+        }
+
+        function triggerProductEditState(id) {
+            tg.HapticFeedback.impactOccurred('light');
+            const p = merchantCatalogCache[id];
+            if (!p) return;
+
+            document.getElementById("product-form-title").innerText = "Modify Product Entry";
+            document.getElementById("form-product-id").value = p.id;
+            document.getElementById("prod-title").value = p.title;
+            document.getElementById("prod-price").value = p.price;
+            document.getElementById("prod-qty").value = p.quantity;
+            document.getElementById("prod-category").value = p.category;
+            document.getElementById("prod-sizes").value = p.sizes || "";
+            
+            document.getElementById("btn-cancel-edit").style.display = "block";
+            document.getElementById("products-tab").scrollTop = 0;
+        }
+
+        function resetProductFormLayout() {
+            document.getElementById("product-form-title").innerText = "Add New Product";
+            document.getElementById("form-product-id").value = "";
+            document.getElementById("product-submission-form").reset();
+            document.getElementById("btn-cancel-edit").style.display = "none";
+        }
+
+        async function deleteProductEntry(id) {
+            tg.showConfirm("Are you sure you want to delete this product listing?", async (yes) => {
+                if (yes) {
+                    const res = await fetch(`/api/products/${id}`, {
+                        method: "DELETE",
+                        headers: { "X-Telegram-Init-Data": tg.initData }
+                    });
+                    if (res.ok) {
+                        loadVendorCatalogListings();
+                        tg.HapticFeedback.notificationOccurred('success');
+                    }
+                }
+            });
+        }
+
+        async function loadIncomingVendorOrders() {
+            try {
+                const res = await fetch("/api/vendor/orders", {
+                    headers: { "X-Telegram-Init-Data": tg.initData }
+                });
+                const orders = await res.json();
+                const container = document.getElementById("orders-feed-container");
+                container.innerHTML = orders.length === 0 ? `<p style="text-align:center; padding:20px; font-size:13px; color:var(--hint);">No client delivery orders recorded yet.</p>` : "";
+
+                orders.forEach(o => {
+                    let badgeBg = "rgba(255,149,0,0.1)";
+                    let badgeTxt = "#ff9500";
+                    if(o.status === "confirmed") { badgeBg = "rgba(52,199,89,0.1)"; badgeTxt = "#34c759"; }
+                    if(o.status === "delivered") { badgeBg = "rgba(0,122,255,0.1)"; badgeTxt = "#007aff"; }
+                    if(o.status === "cancelled") { badgeBg = "rgba(255,59,48,0.1)"; badgeTxt = "#ff3b30"; }
+
+                    const itemsHtml = (o.items || []).map(item =>
+                        `${item.quantity}x ${item.title} (Size: ${item.size})`
+                    ).join("<br>");
+
+                    const card = document.createElement("div");
+                    card.className = "order-card";
+                    card.innerHTML = `
+                        <div class="order-top">
+                            <span class="order-code">${o.order_code.substring(0,20)}...</span>
+                            <span class="order-status-badge" style="background:${badgeBg}; color:${badgeTxt};">${o.status}</span>
+                        </div>
+                        <div class="customer-memo-block">
+                            <b>Buyer:</b> ${o.customer_name} (<a href="tel:${o.customer_phone}" style="color:var(--accent); text-decoration:none;">${o.customer_phone}</a>)<br>
+                            <b>Addr:</b> ${o.delivery_address}<br>
+                            <hr style="border:none; border-top:1px solid var(--card-bg); margin:6px 0;">
+                            <b>Items Ordered:</b><br>${itemsHtml}
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-weight:800; font-size:16px; color:var(--accent);">₦${o.total_amount.toLocaleString()}</span>
+                            <div style="width:50%;">
+                                <select class="order-select-status" onchange="updateOrderLifecycleState(${o.id}, this.value)">
+                                    <option value="pending" ${o.status==='pending'?'selected':''}>Pending</option>
+                                    <option value="confirmed" ${o.status==='confirmed'?'selected':''}>Confirm Order</option>
+                                    <option value="delivered" ${o.status==='delivered'?'selected':''}>Mark Delivered</option>
+                                    <option value="cancelled" ${o.status==='cancelled'?'selected':''}>Cancel Order</option>
+                                </select>
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (err) { console.error("Orders feed fetch sync trace failure:", err); }
+        }
+
+        async function updateOrderLifecycleState(orderId, nextStatusValue) {
+            tg.HapticFeedback.impactOccurred('medium');
+            try {
+                const res = await fetch(`/api/orders/${orderId}/status`, {
+                    method: "POST",
+                    headers: {
+                        "X-Telegram-Init-Data": tg.initData,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ status: nextStatusValue })
+                });
+                if (res.ok) {
+                    loadIncomingVendorOrders();
+                    tg.HapticFeedback.notificationOccurred('success');
+                }
+            } catch(err) { tg.showAlert("Network lifecycle mutation error occurred."); }
+        }
+
+        window.onload = async function() {
+            await populateBankSelectors();
+            initConsole();
+        };
+    </script>
+</body>
+</html>

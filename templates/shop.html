@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Business Hub Storefront</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://checkout.flutterwave.com/v3.js"></script>
+    <style>
+        :root {
+            --accent: var(--tg-theme-button-color, #007aff);
+            --accent-text: var(--tg-theme-button-text-color, #ffffff);
+            --bg: var(--tg-theme-bg-color, #f5f5f7);
+            --card-bg: var(--tg-theme-secondary-bg-color, #ffffff);
+            --text: var(--tg-theme-text-color, #1c1c1e);
+            --hint: var(--tg-theme-hint-color, #8e8e93);
+            --radius-lg: 24px;
+            --radius-md: 16px;
+            --transition-fluid: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0; padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            padding-bottom: 100px;
+            overflow-x: hidden;
+        }
+
+        #splash-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 9999;
+            transition: var(--transition-fluid);
+        }
+        .splash-logo {
+            font-size: 32px; font-weight: 800; letter-spacing: -1px;
+            background: linear-gradient(90deg, var(--text) 0%, var(--hint) 50%, var(--text) 100%);
+            background-size: 200% auto; -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent; animation: shimmer 2.5s linear infinite;
+        }
+        @keyframes shimmer { 0% { background-position: 0% center; } 100% { background-position: 200% center; } }
+
+        .search-wrapper { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+        .search-input {
+            width: 100%; padding: 12px 16px; border-radius: var(--radius-md);
+            border: 1px solid var(--card-bg); background: var(--card-bg);
+            color: var(--text); font-size: 14px; transition: var(--transition-fluid);
+        }
+        .search-input:focus { border-color: var(--accent); outline: none; }
+        
+        .pill-carousel {
+            display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;
+            scrollbar-width: none; -webkit-overflow-scrolling: touch;
+        }
+        .pill-carousel::-webkit-scrollbar { display: none; }
+        .filter-pill {
+            padding: 8px 16px; border-radius: 20px; border: none;
+            background: var(--card-bg); color: var(--hint); font-weight: 600;
+            font-size: 13px; white-space: nowrap; cursor: pointer; transition: var(--transition-fluid);
+        }
+        .filter-pill.active { background: var(--accent); color: var(--accent-text); }
+
+        .vendor-carousel-header { font-size: 12px; font-weight: 700; color: var(--hint); text-transform: uppercase; padding: 0 12px; margin-top: 8px; }
+        .vendor-row {
+            display: flex; gap: 12px; overflow-x: auto; padding: 12px;
+            scrollbar-width: none; -webkit-overflow-scrolling: touch;
+        }
+        .vendor-row::-webkit-scrollbar { display: none; }
+        .vendor-circle-card {
+            display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; width: 70px; shrink: 0; cursor: pointer;
+        }
+        .vendor-avatar {
+            width: 56px; height: 56px; border-radius: 50%; object-fit: cover;
+            border: 2px solid var(--card-bg); background: var(--card-bg); transition: var(--transition-fluid);
+        }
+        .vendor-circle-card.active .vendor-avatar { border-color: var(--accent); transform: scale(1.05); }
+        .vendor-label { font-size: 11px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; }
+
+        .store-banner {
+            background: var(--card-bg); padding: 24px 16px; border-radius: var(--radius-lg);
+            margin: 12px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px;
+        }
+        .store-logo { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 3px solid var(--accent); }
+        .store-name { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+        .store-bio { font-size: 13px; color: var(--hint); line-height: 1.4; max-width: 85%; }
+
+        .market-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 12px; }
+        .prod-card {
+            background: var(--card-bg); border-radius: var(--radius-md); overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.01); display: flex; flex-direction: column;
+            position: relative; cursor: pointer; transition: var(--transition-fluid);
+        }
+        .prod-card:active { transform: scale(0.97); }
+        .prod-img-box { position: relative; width: 100%; height: 140px; background: var(--bg); }
+        .prod-img-box img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .prod-card.sold-out .prod-img-box img { filter: grayscale(1) opacity(0.5); }
+        .sold-out-badge {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-12deg);
+            background: #ff3b30; color: #ffffff; padding: 4px 12px; font-weight: 800;
+            font-size: 12px; border-radius: 6px; letter-spacing: 0.5px; box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+
+        .prod-details { padding: 12px; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+        .prod-title { font-weight: 600; font-size: 14px; color: var(--text); }
+        .prod-price { font-weight: 700; font-size: 16px; color: var(--accent); }
+        .prod-owner-tag { font-size: 10px; color: var(--hint); margin-top: auto; font-weight: 500; }
+
+        .drawer-backdrop {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.4); z-index: 4000; display: none; opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+        .drawer-backdrop.open { display: block; opacity: 1; }
+        .bottom-drawer {
+            position: fixed; bottom: 0; left: 0; width: 100%; background: var(--card-bg);
+            border-top-left-radius: var(--radius-lg); border-top-right-radius: var(--radius-lg);
+            z-index: 5000; padding: 24px; transform: translateY(100%);
+            transition: var(--transition-fluid); max-height: 85vh; overflow-y: auto;
+            box-shadow: 0 -8px 32px rgba(0,0,0,0.06);
+        }
+        .bottom-drawer.open { transform: translateY(0); }
+
+        .size-box-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 18px 0; }
+        .size-tile {
+            padding: 10px 16px; border: 1px solid var(--bg); background: var(--bg);
+            color: var(--text); font-weight: 600; font-size: 13px; border-radius: 10px;
+            cursor: pointer; transition: var(--transition-fluid);
+        }
+        .size-tile.selected { border-color: var(--accent); background: var(--accent); color: var(--accent-text); }
+        
+        .qty-stepper { display: flex; align-items: center; gap: 16px; margin: 10px 0 20px 0; }
+        .step-btn {
+            width: 36px; height: 36px; border-radius: 50%; border: none;
+            background: var(--bg); color: var(--text); font-size: 18px; font-weight: 600;
+            display: flex; justify-content: center; align-items: center; cursor: pointer;
+        }
+        .qty-val { font-size: 16px; font-weight: 700; width: 24px; text-align: center; }
+
+        .floating-cart-bar {
+            position: fixed; bottom: 16px; left: 16px; right: 16px;
+            background: var(--accent); color: var(--accent-text); padding: 16px 20px;
+            border-radius: var(--radius-md); display: none; justify-content: space-between;
+            align-items: center; box-shadow: 0 8px 24px rgba(0,122,255,0.3);
+            z-index: 3000; cursor: pointer; animation: slideUpCart 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes slideUpCart { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .cart-title { font-weight: 700; font-size: 15px; }
+        .cart-meta { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+        .cart-price-sum { font-weight: 800; font-size: 17px; }
+
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: var(--hint); }
+        .form-control {
+            width: 100%; padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--bg);
+            background: var(--bg); color: var(--text); font-size: 14px; transition: var(--transition-fluid);
+        }
+        .form-control:focus { border-color: var(--accent); outline: none; }
+        .action-submit-btn {
+            width: 100%; padding: 14px; border: none; background: var(--accent);
+            color: var(--accent-text); border-radius: var(--radius-md); font-weight: 700;
+            font-size: 15px; cursor: pointer;
+        }
+        .action-submit-btn:disabled { background: var(--hint); opacity: 0.5; cursor: not-allowed; }
+
+        .order-history-header { font-size: 16px; font-weight: 700; margin: 16px 12px 8px 12px; }
+        .history-card { background: var(--card-bg); padding: 12px; border-radius: var(--radius-md); margin: 0 12px 10px 12px; display: flex; justify-content: space-between; align-items: center; }
+        .history-status-badge { font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 2px 8px; border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="splash-screen">
+        <div class="splash-logo">BUSINESS HUB</div>
+    </div>
+
+    <div id="marketplace-shell" style="display:none;">
+        <div id="discover-header-block" class="search-wrapper">
+            <input type="text" id="global-search" class="search-input" placeholder="Search products, shoes, bags..." oninput="filterCatalogGrid()">
+            <div class="pill-carousel" id="categories-pill-box">
+                <button class="filter-pill active" onclick="filterCategory('All', this)">All Items</button>
+            </div>
+        </div>
+
+        <div id="vendor-horizontal-scroller-box">
+            <div class="vendor-carousel-header">Browse Active Boutiques</div>
+            <div class="vendor-row" id="vendors-avatar-container"></div>
+        </div>
+
+        <div id="dedicated-shop-banner-frame" style="display:none;">
+            <div class="store-banner">
+                <img src="" id="boutique-logo" class="store-logo" alt="Shop Brand Logo">
+                <div>
+                    <h2 id="boutique-name" class="store-name">Boutique Name</h2>
+                    <p id="boutique-bio" class="store-bio">Boutique Bio Description Paragraph Details...</p>
+                </div>
+            </div>
+        </div>
+
+        <h3 class="order-history-header" id="feed-context-title">Product Feed</h3>
+        <div class="market-grid" id="global-products-grid"></div>
+
+        <div id="personal-orders-block">
+            <h3 class="order-history-header">Your Active Orders</h3>
+            <div id="personal-history-container"></div>
+        </div>
+    </div>
+
+    <div class="drawer-backdrop" id="drawer-backdrop" onclick="closeProductDrawer()"></div>
+    <div class="bottom-drawer" id="details-drawer">
+        <div style="display:flex; gap:16px; margin-bottom:16px;">
+            <img src="" id="modal-p-img" style="width:90px; height:90px; object-fit:cover; border-radius:12px; background:var(--bg);">
+            <div style="display:flex; flex-direction:column; justify-content:center;">
+                <h3 id="modal-p-title" style="font-size:18px; font-weight:700;">Product Title</h3>
+                <span id="modal-p-price" style="font-size:20px; font-weight:800; color:var(--accent); margin-top:4px;">₦0</span>
+            </div>
+        </div>
+
+        <div id="modal-sizes-container-section">
+            <span style="font-size:12px; font-weight:600; color:var(--hint);">Select Available Size:</span>
+            <div class="size-box-row" id="modal-sizes-row"></div>
+        </div>
+
+        <div id="modal-qty-container-section">
+            <span style="font-size:12px; font-weight:600; color:var(--hint);">Select Quantity:</span>
+            <div class="qty-stepper">
+                <button class="step-btn" onclick="adjustQty(-1)">-</button>
+                <span class="qty-val" id="stepper-val">1</span>
+                <button class="step-btn" onclick="adjustQty(1)">+</button>
+            </div>
+        </div>
+
+        <button class="action-submit-btn" id="drawer-action-main-btn" onclick="addSelectedToCart()">Add To Shopping Bag</button>
+    </div>
+
+    <div class="bottom-drawer" id="checkout-drawer">
+        <h3 style="font-size:18px; font-weight:700; margin-bottom:12px;">Your Shopping Bag</h3>
+        <div id="checkout-cart-summary" style="margin-bottom:18px; max-height:180px; overflow-y:auto;"></div>
+        <div style="display:flex; justify-content:space-between; font-weight:700; font-size:15px; margin-bottom:20px; padding-top:10px; border-top:1px solid rgba(0,0,0,0.08);">
+            <span>Total</span>
+            <span id="checkout-cart-total">₦0</span>
+        </div>
+        <h3 style="font-size:18px; font-weight:700; margin-bottom:16px;">Delivery Details</h3>
+        <form onsubmit="submitCheckoutOrder(event)">
+            <div class="form-group">
+                <label>Your Customer Name</label>
+                <input type="text" id="order-name" placeholder="Full Name" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>WhatsApp Contact Mobile Line</label>
+                <input type="tel" id="order-phone" placeholder="e.g. 08031234567" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Complete Dropoff Delivery Address</label>
+                <textarea id="order-address" placeholder="State, City, Street details perfectly mapped..." rows="3" class="form-control" required></textarea>
+            </div>
+            <button type="submit" id="checkout-form-submit-btn" class="action-submit-btn">Proceed to Secure Payment</button>
+        </form>
+    </div>
+
+    <div class="floating-cart-bar" id="cart-float-bar" onclick="openCheckoutDrawer()">
+        <div>
+            <div class="cart-title">View Shopping Bag</div>
+            <div class="cart-meta" id="cart-floating-meta-text">1 Item selected</div>
+        </div>
+        <div class="cart-price-sum" id="cart-floating-total-text">₦0</div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand(); tg.ready();
+
+        let catalogMasterData = [];
+        let filteredCatalog = [];
+        let activeCategorySelection = "All";
+        let activeVendorFilterId = null;
+        
+        let localCartArray = [];
+        let runningTargetProductObj = null;
+        let selectedSizeString = "";
+        let runningQtyInt = 1;
+
+        async function bootStorefront() {
+            const startupParamVendorId = (tg.initDataUnsafe && tg.initDataUnsafe.start_param) ? tg.initDataUnsafe.start_param : null;
+            let apiUrl = "/api/marketplace/configs";
+            if (startupParamVendorId) apiUrl += `?vendor_id=${startupParamVendorId}`;
+
+            try {
+                const res = await fetch(apiUrl);
+                const config = await res.json();
+
+                document.getElementById("splash-screen").style.opacity = "0";
+                setTimeout(() => document.getElementById("splash-screen").style.display = "none", 350);
+                document.getElementById("marketplace-shell").style.display = "block";
+
+                if (config.mode === "store") {
+                    document.getElementById("discover-header-block").style.display = "none";
+                    document.getElementById("vendor-horizontal-scroller-box").style.display = "none";
+                    document.getElementById("feed-context-title").innerText = "Boutique Catalog";
+                    
+                    document.getElementById("dedicated-shop-banner-frame").style.display = "block";
+                    document.getElementById("boutique-name").innerText = config.vendor.name;
+                    document.getElementById("boutique-bio").innerText = config.vendor.bio || "No boutique bio updated.";
+                    document.getElementById("boutique-logo").src = config.vendor.logo || "";
+                    
+                    catalogMasterData = config.products || [];
+                } else {
+                    catalogMasterData = config.products || [];
+                    compileDiscoveryCategories(catalogMasterData);
+                    compileVendorsCarousel(config.vendors || []);
+                }
+
+                filteredCatalog = [...catalogMasterData];
+                renderCatalogGrid(filteredCatalog);
+                loadCustomerOrderHistory();
+
+            } catch (err) {
+                console.error("Storefront boot failure state trace:", err);
+                document.getElementById("splash-screen").style.display = "none";
+                document.getElementById("marketplace-shell").style.display = "block";
+            }
+        }
+
+        function compileDiscoveryCategories(products) {
+            const uniqueCategories = new Set();
+            products.forEach(p => { if(p.category) uniqueCategories.add(p.category); });
+            const box = document.getElementById("categories-pill-box");
+            uniqueCategories.forEach(cat => {
+                const btn = document.createElement("button");
+                btn.className = "filter-pill";
+                btn.innerText = cat;
+                btn.onclick = () => filterCategory(cat, btn);
+                box.appendChild(btn);
+            });
+        }
+
+        function compileVendorsCarousel(vendors) {
+            const container = document.getElementById("vendors-avatar-container");
+            vendors.forEach(v => {
+                const item = document.createElement("div");
+                item.className = "vendor-circle-card";
+                item.onclick = () => toggleVendorFilter(v.id, item);
+                item.innerHTML = `
+                    <img src="${v.logo || ''}" class="vendor-avatar">
+                    <span class="vendor-label">${v.name}</span>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function toggleVendorFilter(vendorId, element) {
+            tg.HapticFeedback.impactOccurred('light');
+            const isAlreadyFiltered = activeVendorFilterId === vendorId;
+            document.querySelectorAll(".vendor-circle-card").forEach(c => c.classList.remove("active"));
+            
+            if (isAlreadyFiltered) {
+                activeVendorFilterId = null;
+            } else {
+                activeVendorFilterId = vendorId;
+                element.classList.add("active");
+            }
+            filterCatalogGrid();
+        }
+
+        function filterCategory(cat, element) {
+            tg.HapticFeedback.impactOccurred('light');
+            document.querySelectorAll(".filter-pill").forEach(p => p.classList.remove("active"));
+            element.classList.add("active");
+            activeCategorySelection = cat;
+            filterCatalogGrid();
+        }
+
+        function filterCatalogGrid() {
+            const searchField = document.getElementById("global-search");
+            const query = searchField ? searchField.value.toLowerCase() : "";
+            
+            filteredCatalog = catalogMasterData.filter(p => {
+                const matchesQuery = p.title.toLowerCase().includes(query);
+                const matchesCategory = (activeCategorySelection === "All") || (p.category === activeCategorySelection);
+                const matchesVendor = (activeVendorFilterId === null) || (p.vendor_id === activeVendorFilterId);
+                return matchesQuery && matchesCategory && matchesVendor;
+            });
+
+            renderCatalogGrid(filteredCatalog);
+        }
+
+        function renderCatalogGrid(products) {
+            const grid = document.getElementById("global-products-grid");
+            grid.innerHTML = products.length === 0 ? `<p style="grid-column: span 2; text-align:center; padding:40px; color:var(--hint); font-size:14px;">No matching products found.</p>` : "";
+
+            products.forEach(p => {
+                const isSoldOut = p.quantity <= 0;
+                const card = document.createElement("div");
+                card.className = `prod-card ${isSoldOut ? 'sold-out' : ''}`;
+                card.onclick = () => openProductViewerDrawer(p);
+                
+                card.innerHTML = `
+                    <div class="prod-img-box">
+                        <img src="${p.image_url || ''}">
+                        ${isSoldOut ? `<div class="sold-out-badge">SOLD OUT</div>` : ''}
+                    </div>
+                    <div class="prod-details">
+                        <span class="prod-title">${p.title}</span>
+                        <span class="prod-price">₦${p.price.toLocaleString()}</span>
+                        ${p.category ? `<span class="prod-owner-tag">🏷️ ${p.category}</span>` : ''}
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function openProductViewerDrawer(product) {
+            tg.HapticFeedback.impactOccurred('light');
+            runningTargetProductObj = product;
+            selectedSizeString = "";
+            runningQtyInt = 1;
+            document.getElementById("stepper-val").innerText = "1";
+
+            document.getElementById("modal-p-img").src = product.image_url || "";
+            document.getElementById("modal-p-title").innerText = product.title;
+            document.getElementById("modal-p-price").innerText = `₦${product.price.toLocaleString()}`;
+
+            const sizeRow = document.getElementById("modal-sizes-row");
+            sizeRow.innerHTML = "";
+            if (product.sizes && product.sizes.trim().length > 0) {
+                document.getElementById("modal-sizes-container-section").style.display = "block";
+                const sizesArray = product.sizes.split(",").map(s => s.trim());
+                sizesArray.forEach(sz => {
+                    const tile = document.createElement("div");
+                    tile.className = "size-tile";
+                    tile.innerText = sz;
+                    tile.onclick = () => {
+                        document.querySelectorAll(".size-tile").forEach(t => t.classList.remove("selected"));
+                        tile.classList.add("selected");
+                        selectedSizeString = sz;
+                        tg.HapticFeedback.impactOccurred('light');
+                    };
+                    sizeRow.appendChild(tile);
+                });
+            } else {
+                document.getElementById("modal-sizes-container-section").style.display = "none";
+                selectedSizeString = "Standard";
+            }
+
+            const actionBtn = document.getElementById("drawer-action-main-btn");
+            if (product.quantity <= 0) {
+                document.getElementById("modal-qty-container-section").style.display = "none";
+                actionBtn.disabled = true;
+                actionBtn.innerText = "Out of Stock";
+            } else {
+                document.getElementById("modal-qty-container-section").style.display = "block";
+                actionBtn.disabled = false;
+                actionBtn.innerText = "Add To Shopping Bag";
+            }
+
+            document.getElementById("drawer-backdrop").classList.add("open");
+            document.getElementById("details-drawer").classList.add("open");
+        }
+
+        function adjustQty(change) {
+            const nextVal = runningQtyInt + change;
+            if (nextVal >= 1 && nextVal <= runningTargetProductObj.quantity) {
+                runningQtyInt = nextVal;
+                document.getElementById("stepper-val").innerText = runningQtyInt;
+                tg.HapticFeedback.impactOccurred('light');
+            }
+        }
+
+        function closeProductDrawer() {
+            document.getElementById("drawer-backdrop").classList.remove("open");
+            document.getElementById("details-drawer").classList.remove("open");
+            document.getElementById("checkout-drawer").classList.remove("open");
+        }
+
+        function addSelectedToCart() {
+            if (!selectedSizeString) {
+                tg.showAlert("Please select an available product size configuration variant first!");
+                return;
+            }
+
+            const existingIndex = localCartArray.findIndex(
+                item => item.product_id === runningTargetProductObj.id && item.size === selectedSizeString
+            );
+
+            if (existingIndex !== -1) {
+                // Same product + size already in cart — bump quantity instead of duplicating
+                const newQty = localCartArray[existingIndex].quantity + runningQtyInt;
+                localCartArray[existingIndex].quantity = Math.min(newQty, runningTargetProductObj.quantity);
+            } else {
+                localCartArray.push({
+                    product_id: runningTargetProductObj.id,
+                    title: runningTargetProductObj.title,
+                    price: runningTargetProductObj.price,
+                    quantity: runningQtyInt,
+                    size: selectedSizeString
+                });
+            }
+
+            closeProductDrawer();
+            updateCartNavigationUI();
+            tg.HapticFeedback.notificationOccurred('success');
+        }
+
+        function updateCartNavigationUI() {
+            const floatBar = document.getElementById("cart-float-bar");
+            if (localCartArray.length === 0) {
+                floatBar.style.display = "none";
+                return;
+            }
+
+            floatBar.style.display = "flex";
+
+            const totalItemCount = localCartArray.reduce((sum, item) => sum + item.quantity, 0);
+            const dynamicSumGross = localCartArray.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+            const distinctLabel = localCartArray.length === 1
+                ? `${localCartArray[0].quantity}x ${localCartArray[0].title} (${localCartArray[0].size})`
+                : `${totalItemCount} items in bag`;
+
+            document.getElementById("cart-floating-meta-text").innerText = distinctLabel;
+            document.getElementById("cart-floating-total-text").innerText = `₦${dynamicSumGross.toLocaleString()}`;
+        }
+
+        function openCheckoutDrawer() {
+            tg.HapticFeedback.impactOccurred('medium');
+            renderCheckoutCartSummary();
+            document.getElementById("drawer-backdrop").classList.add("open");
+            document.getElementById("checkout-drawer").classList.add("open");
+        }
+
+        function renderCheckoutCartSummary() {
+            const container = document.getElementById("checkout-cart-summary");
+            container.innerHTML = "";
+
+            let total = 0;
+            localCartArray.forEach((item, index) => {
+                const lineTotal = item.price * item.quantity;
+                total += lineTotal;
+
+                const row = document.createElement("div");
+                row.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding:8px 0; font-size:14px;";
+                row.innerHTML = `
+                    <div style="flex:1;">
+                        <div style="font-weight:600;">${item.title}</div>
+                        <div style="font-size:12px; opacity:0.7;">${item.quantity}x (${item.size}) — ₦${lineTotal.toLocaleString()}</div>
+                    </div>
+                    <button type="button" onclick="removeCartItem(${index})" style="border:none; background:none; color:#e74c3c; font-size:13px; padding:4px 8px; cursor:pointer;">Remove</button>
+                `;
+                container.appendChild(row);
+            });
+
+            document.getElementById("checkout-cart-total").innerText = `₦${total.toLocaleString()}`;
+        }
+
+        function removeCartItem(index) {
+            localCartArray.splice(index, 1);
+            renderCheckoutCartSummary();
+            updateCartNavigationUI();
+            tg.HapticFeedback.impactOccurred('light');
+
+            if (localCartArray.length === 0) {
+                document.getElementById("drawer-backdrop").classList.remove("open");
+                document.getElementById("checkout-drawer").classList.remove("open");
+            }
+        }
+
+        // --- PRODUCTION SECURED CHECKOUT PIPELINE MECHANISM ---
+        async function submitCheckoutOrder(e) {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById("checkout-form-submit-btn");
+            if (submitBtn.disabled) return;
+            submitBtn.disabled = true;
+            submitBtn.innerText = "Initializing payment entry...";
+            
+            tg.HapticFeedback.impactOccurred('medium');
+
+            const orderPayload = {
+                customer_name: document.getElementById("order-name").value,
+                customer_phone: document.getElementById("order-phone").value,
+                delivery_address: document.getElementById("order-address").value,
+                items: localCartArray
+            };
+
+            try {
+                const res = await fetch("/api/checkout", {
+                    method: "POST",
+                    headers: {
+                        "X-Telegram-Init-Data": tg.initData,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(orderPayload)
+                });
+
+                const data = await res.json();
+                if (!data.success) {
+                    tg.showAlert(`Checkout failed: ${data.detail || "Insufficient stock error"}`);
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = "Proceed to Secure Payment";
+                    return;
+                }
+
+                FlutterwaveCheckout({
+                    public_key: "FLWPUBK-f6abdffecd8a10ee6651a7c18ffb8294-X", 
+                    tx_ref: data.order_code,
+                    amount: data.total_amount,
+                    currency: "NGN",
+                    payment_options: "card, banktransfer, ussd",
+                    customer: {
+                        email: "buyer@businesshub.ng", 
+                        phone_number: orderPayload.customer_phone,
+                        name: orderPayload.customer_name,
+                    },
+                    customizations: {
+                        title: "Business Hub Marketplace",
+                        description: `Payment for Order Ref: ${data.order_code}`,
+                    },
+                    callback: function (paymentResponse) {
+                        if (paymentResponse.status === "successful" || paymentResponse.charge_response_code === "00") {
+                            localCartArray = [];
+                            updateCartNavigationUI();
+                            closeProductDrawer();
+                            loadCustomerOrderHistory();
+                            
+                            tg.HapticFeedback.notificationOccurred('success');
+
+                            const itemsListText = orderPayload.items
+                                .map(item => `${item.quantity}x ${item.title} (Size: ${item.size})`)
+                                .join("\n");
+                            const rawText = `Hello, I just paid for an order via Business Hub! 💳🛍\n\n*Order Code:* ${data.order_code}\n*Items:*\n${itemsListText}\n*Total Value:* ₦${data.total_amount.toLocaleString()}\n\nPayment has been secured successfully via Flutterwave channels.`;
+                            
+                            let formattedPhone = data.vendor_phone.replace(/\D/g, '');
+                            if (formattedPhone.startsWith('0')) {
+                                formattedPhone = '234' + formattedPhone.substring(1);
+                            }
+
+                            const compiledWhatsappUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(rawText)}`;
+                            
+                            tg.showPopup({
+                                title: "Payment Secured & Verified!",
+                                message: "Your transaction has cleared successfully. Tap below to notify the vendor on WhatsApp.",
+                                buttons: [{ type: "default", text: "Open WhatsApp Chat" }]
+                            }, () => {
+                                tg.openLink(compiledWhatsappUrl);
+                            });
+                        } else {
+                            tg.showAlert("Payment collection confirmation timed out. Please review transaction status details.");
+                        }
+                    },
+                    onclose: function() {
+                        submitBtn.disabled = false;
+                        submitBtn.innerText = "Proceed to Secure Payment";
+                    }
+                });
+
+            } catch (err) {
+                tg.showAlert("Network pipeline error encountered during checkout synchronization.");
+                submitBtn.disabled = false;
+                submitBtn.innerText = "Proceed to Secure Payment";
+            }
+        }
+
+        async function loadCustomerOrderHistory() {
+            try {
+                const res = await fetch("/api/customer/orders", {
+                    headers: { "X-Telegram-Init-Data": tg.initData }
+                });
+                const orders = await res.json();
+                const container = document.getElementById("personal-history-container");
+                container.innerHTML = orders.length === 0 ? `<p style="padding:16px; font-size:13px; color:var(--hint); text-align:center;">You haven't placed any orders yet.</p>` : "";
+
+                orders.forEach(o => {
+                    let statusColor = "rgba(255,149,0,0.1)";
+                    let textColor = "#ff9500";
+                    if(o.status === "confirmed") { statusColor = "rgba(52,199,89,0.1)"; textColor = "#34c759"; }
+                    if(o.status === "delivered") { statusColor = "rgba(0,122,255,0.1)"; textColor = "#007aff"; }
+                    if(o.status === "cancelled") { statusColor = "rgba(255,59,48,0.1)"; textColor = "#ff3b30"; }
+
+                    const card = document.createElement("div");
+                    card.className = "history-card";
+                    card.innerHTML = `
+                        <div style="display:flex; flex-direction:column; gap:2px;">
+                            <span style="font-weight:700; font-size:13px;">${o.order_code.substring(0,18)}...</span>
+                            <span style="font-weight:700; color:var(--accent); font-size:14px;">₦${o.total_amount.toLocaleString()}</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span class="history-status-badge" style="background:${statusColor}; color:${textColor};">${o.status}</span>
+                            ${o.status === 'pending' ? `<button style="border:none; background:transparent; color:#ff3b30; font-size:12px; font-weight:600;" onclick="cancelMyOrder(${o.id})">Cancel</button>` : ''}
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch(e) { console.error("History pipeline trace mismatch:", e); }
+        }
+
+        async function cancelMyOrder(id) {
+            tg.showConfirm("Are you sure you want to cancel this pending order?", async (yes) => {
+                if(yes) {
+                    const res = await fetch(`/api/customer/orders/${id}/cancel`, {
+                        method: "POST",
+                        headers: { "X-Telegram-Init-Data": tg.initData }
+                    });
+                    if(res.ok) {
+                        loadCustomerOrderHistory();
+                        tg.HapticFeedback.notificationOccurred('success');
+                    }
+                }
+            });
+        }
+
+        window.onload = bootStorefront;
+    </script>
+</body>
+</html>

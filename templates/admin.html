@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Business Hub - Admin Deck</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --tg-theme-bg-color: #ffffff;
+            --tg-theme-text-color: #222222;
+            --tg-theme-button-color: #2481cc;
+            --tg-theme-button-text-color: #ffffff;
+            --tg-theme-secondary-bg-color: #f4f5f7;
+            --danger-color: #e53935;
+            --success-color: #43a047;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--tg-theme-secondary-bg-color);
+            color: var(--tg-theme-text-color);
+            margin: 0;
+            padding: 12px;
+            font-size: 14px;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .card {
+            background: var(--tg-theme-bg-color);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        h2, h3 {
+            margin-top: 0;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #666;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 15px;
+            background: var(--tg-theme-bg-color);
+            color: var(--tg-theme-text-color);
+        }
+
+        .btn {
+            background-color: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-text-color);
+            border: none;
+            padding: 12px 16px;
+            border-radius: 8px;
+            width: 100%;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn:active {
+            opacity: 0.8;
+        }
+
+        .btn-danger { background-color: var(--danger-color); }
+        .btn-secondary { background-color: #757575; margin-top: 6px;}
+
+        .vendor-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .vendor-item:last-child { border-bottom: none; }
+
+        .vendor-info h4 { margin: 0 0 4px 0; font-size: 15px; }
+        .vendor-info p { margin: 0; color: #666; font-size: 12px; }
+
+        .badge {
+            font-size: 11px;
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+            color: white;
+            display: inline-block;
+            margin-top: 2px;
+        }
+        .badge-banned { background-color: var(--danger-color); }
+        .badge-active { background-color: var(--success-color); }
+
+        .actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .action-btn {
+            border: none;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            color: white;
+        }
+
+        #loading {
+            text-align: center;
+            padding: 40px;
+            font-weight: 500;
+            color: #666;
+        }
+
+        #error-screen {
+            display: none;
+            text-align: center;
+            padding: 40px 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loading">Syncing secure access parameters...</div>
+
+    <div id="error-screen">
+        <h2 style="color: var(--danger-color);">🔒 Access Prohibited</h2>
+        <p>Your Telegram parameters do not match administrative authorization records for this infrastructure ecosystem.</p>
+    </div>
+
+    <div id="admin-content" style="display: none;">
+        <div class="card">
+            <h2>System Control Metrics</h2>
+            <div class="form-group">
+                <label>Infrastructure Split Commission (%)</label>
+                <input type="number" id="commission-input" step="0.1" min="0" max="100">
+            </div>
+            <button class="btn" onclick="updateCommission()">Apply Configuration</button>
+        </div>
+
+        <div class="card">
+            <h2>Registered Merchant Registries</h2>
+            <div id="vendor-list">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        // Target authorization injection data layer
+        const initData = tg.initData;
+
+        // Configuration request settings template
+        const fetchHeaders = {
+            'X-Telegram-Init-Data': initData,
+            'Content-Type': 'application/json'
+        };
+
+        // Initialize and load management deck metrics
+        async function loadMetrics() {
+            try {
+                const response = await fetch('/api/admin/overview', {
+                    method: 'GET',
+                    headers: fetchHeaders
+                });
+
+                if (response.status === 403) {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('error-screen').style.display = 'block';
+                    return;
+                }
+
+                if (!response.ok) throw new Error('API Sync Fault');
+
+                const data = await response.json();
+                
+                // Set current commission input placeholder values
+                document.getElementById('commission-input').value = data.current_commission;
+
+                // Render dynamic merchant profiles list
+                const container = document.getElementById('vendor-list');
+                container.innerHTML = '';
+
+                if (data.vendors.length === 0) {
+                    container.innerHTML = '<p style="color:#666; text-align:center;">No active vendors registered.</p>';
+                } else {
+                    data.vendors.forEach(vendor => {
+                        const div = document.createElement('div');
+                        div.className = 'vendor-item';
+                        
+                        const statusBadge = vendor.is_banned 
+                            ? '<span class="badge badge-banned">SUSPENDED</span>' 
+                            : '<span class="badge badge-active">ACTIVE</span>';
+
+                        div.innerHTML = `
+                            <div class="vendor-info">
+                                <h4>${vendor.business_name}</h4>
+                                <p>ID: ${vendor.vendor_id} | Phone: ${vendor.phone_number}</p>
+                                <p>Subacct: ${vendor.subaccount_id || 'None'}</p>
+                                ${statusBadge}
+                            </div>
+                            <div class="actions">
+                                <button class="action-btn" style="background-color: ${vendor.is_banned ? 'var(--success-color)' : '#ff9800'}" 
+                                    onclick="toggleBan(${vendor.vendor_id}, ${!vendor.is_banned})">
+                                    ${vendor.is_banned ? 'Lift' : 'Suspend'}
+                                </button>
+                                <button class="action-btn btn-danger" onclick="hardDelete(${vendor.vendor_id})">Purge</button>
+                            </div>
+                        `;
+                        container.appendChild(div);
+                    });
+                }
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('admin-content').style.display = 'block';
+
+            } catch (error) {
+                document.getElementById('loading').innerText = 'Fatal Error during state hydration framework sync.';
+                console.error(error);
+            }
+        }
+
+        // Alter system commission rules parameters
+        async function updateCommission() {
+            const val = parseFloat(document.getElementById('commission-input').value);
+            if (isNaN(val) || val < 0 || val > 100) {
+                tg.showAlert('Invalid configuration range limits.');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/admin/commission', {
+                    method: 'POST',
+                    headers: fetchHeaders,
+                    body: JSON.stringify({ commission_percentage: val })
+                });
+                const resData = await response.json();
+                if (response.ok) {
+                    tg.showPopup({ message: "Infrastructure processing parameters applied successfully." });
+                    loadMetrics();
+                } else {
+                    tg.showAlert(resData.detail || "Update rejected.");
+                }
+            } catch (err) {
+                tg.showAlert("Network pipeline error.");
+            }
+        }
+
+        // Toggle account suspensions mechanics
+        async function toggleBan(vendorId, targetStatus) {
+            const actionText = targetStatus ? "suspend" : "reactivate";
+            
+            tg.showConfirm(`Confirm intent to ${actionText} Merchant Node ${vendorId}?`, async (confirmed) => {
+                if (!confirmed) return;
+                try {
+                    const response = await fetch('/api/admin/vendors/ban', {
+                        method: 'POST',
+                        headers: fetchHeaders,
+                        body: JSON.stringify({ vendor_id: vendorId, ban_status: targetStatus })
+                    });
+                    if (response.ok) {
+                        loadMetrics();
+                    } else {
+                        tg.showAlert("State change request refused by engine pipeline execution blocks.");
+                    }
+                } catch (err) {
+                    tg.showAlert("Pipeline transmission error.");
+                }
+            });
+        }
+
+        // Hard purge record and catalog mappings database rows
+        async function hardDelete(vendorId) {
+            tg.showConfirm(`CRITICAL WARNING: Purge merchant catalog tracking parameters and vendor entry row for index ID: ${vendorId}? This operation is irreversible.`, async (confirmed) => {
+                if (!confirmed) return;
+                try {
+                    const response = await fetch(`/api/admin/vendors/${vendorId}`, {
+                        method: 'DELETE',
+                        headers: fetchHeaders
+                    });
+                    if (response.ok) {
+                        loadMetrics();
+                    } else {
+                        tg.showAlert("Purge block execution failure parameters detected.");
+                    }
+                } catch (err) {
+                    tg.showAlert("Pipeline exception crash during drop logic execution workflows.");
+                }
+            });
+        }
+
+        // Fire initial load sequence execution
+        loadMetrics();
+    </script>
+</body>
+  </html>
+  
