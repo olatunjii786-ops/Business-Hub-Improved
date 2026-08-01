@@ -26,7 +26,7 @@ FLW_SECRET_KEY = os.getenv("FLUTTERWAVE_SECRET_KEY")
 if not BOT_TOKEN or not DATABASE_URL:
     raise ValueError("CRITICAL ERROR: Environment variables TELEGRAM_BOT_TOKEN or DATABASE_URL are missing!")
 
-BOT_USERNAME = "isaacbusinessbot"
+BOT_USERNAME = "BusinessHubMarketBot"
 
 app = FastAPI(title="Business Hub Central Engine")
 templates = Jinja2Templates(directory="templates")
@@ -50,6 +50,27 @@ def get_db():
         yield db
     finally:
         db.close()
+
+# --- AUTOMATIC TELEGRAM WEBHOOK REGISTRATION ---
+@app.on_event("startup")
+async def register_telegram_webhook():
+    if not APP_URL:
+        print("⚠️  Webhook auto-registration skipped: RENDER_EXTERNAL_URL not set yet.")
+        return
+
+    webhook_url = f"{APP_URL}/webhook"
+    telegram_api_url = f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook"
+
+    try:
+        async with httpx.AsyncClient() as client:
+            res = await client.post(telegram_api_url, json={"url": webhook_url}, timeout=10.0)
+            result = res.json()
+            if result.get("ok"):
+                print(f"✅ Telegram webhook registered successfully: {webhook_url}")
+            else:
+                print(f"⚠️  Telegram webhook registration failed: {result.get('description')}")
+    except Exception as e:
+        print(f"⚠️  Exception during webhook auto-registration: {e}")
 
 # --- RELATIONAL DATA MODELS ---
 class AdminConfig(Base):
@@ -347,12 +368,12 @@ async def telegram_webhook_endpoint(request: Request, db: Session = Depends(get_
                     return {"status": "ok"}
                     
                 welcome_msg = (
-                    f"⚡ *System Control Deck Activated.*\n\n"
-                    f"Welcome back, Chief. Access your master admin panel below:"
+                    f"👋 *Welcome back!*\n\n"
+                    f"Here's your admin dashboard — manage vendors, commissions, and more."
                 )
                 keyboard = {
                     "inline_keyboard": [[
-                        {"text": "📊 Open Control Deck", "web_app": {"url": f"{APP_URL}/admin/dashboard"}}
+                        {"text": "📊 Open Admin Dashboard", "web_app": {"url": f"{APP_URL}/admin/dashboard"}}
                     ]]
                 }
                 
@@ -381,13 +402,13 @@ async def telegram_webhook_endpoint(request: Request, db: Session = Depends(get_
                         
                     welcome_msg = (
                         f"🛍 *Welcome to Business Hub!*\n\n"
-                        f"You have opened a direct merchant boutique page.\n\n"
-                        f"👉 Tap the button below to view their active catalog elements!"
+                        f"You've been invited to check out this shop.\n\n"
+                        f"👉 Tap below to browse their products!"
                     )
                     keyboard = {
                         "inline_keyboard": [[
                             {
-                                "text": "🌐 Open Boutique Storefront",
+                                "text": "🌐 Visit Shop",
                                 "web_app": {"url": f"{APP_URL}/shop?startapp={target_vendor_id}"}
                             }
                         ]]
@@ -398,27 +419,27 @@ async def telegram_webhook_endpoint(request: Request, db: Session = Depends(get_
                     # Tailored menu if the admin runs /start
                     if str(chat_id) == str(ADMIN_ID):
                         welcome_msg = (
-                            f"⚡ *Welcome to businessHub🛍️, Are you a seller or a buyer, you've found the right place🫰🏼🤗.*\n\n"
-                            f"Ecosystem control parameters are healthy. Select your destination workspace below:"
+                            f"👋 *Welcome back!*\n\n"
+                            f"Everything's running smoothly. Where would you like to go?"
                         )
                         keyboard = {
                             "inline_keyboard": [
-                                [{"text": "📊 Open Admin dashboard", "web_app": {"url": f"{APP_URL}/admin/dashboard"}}],
-                                [{"text": "🛍 Open Global Marketplace", "web_app": {"url": f"{APP_URL}/shop"}}],
-                                [{"text": "🛠 Open Seller workspace", "web_app": {"url": f"{APP_URL}/vendor"}}]
+                                [{"text": "📊 Admin Dashboard", "web_app": {"url": f"{APP_URL}/admin/dashboard"}}],
+                                [{"text": "🛍 Marketplace", "web_app": {"url": f"{APP_URL}/shop"}}],
+                                [{"text": "🛠 Vendor Console", "web_app": {"url": f"{APP_URL}/vendor"}}]
                             ]
                         }
                     # Standard menu for all other users/vendors
                     else:
                         welcome_msg = (
-                            f"👋 *Welcome to the Business Hub Ecosystem!*\n\n"
-                            f"Are you a customer ready to shop top-tier products, or a vendor looking to manage your store automation?\n\n"
-                            f"Launch your workspace window instantly using the control deck below:"
+                            f"👋 *Welcome to Business Hub!*\n\n"
+                            f"Looking to shop, or want to sell your own products?\n\n"
+                            f"Pick an option below to get started:"
                         )
                         keyboard = {
                             "inline_keyboard": [
-                                [{"text": "🛍 Open Global Marketplace", "web_app": {"url": f"{APP_URL}/shop"}}],
-                                [{"text": "🛠 Open seller Workspace", "web_app": {"url": f"{APP_URL}/vendor"}}]
+                                [{"text": "🛍 Shop Now", "web_app": {"url": f"{APP_URL}/shop"}}],
+                                [{"text": "🛠 Sell on Business Hub", "web_app": {"url": f"{APP_URL}/vendor"}}]
                             ]
                         }
                 
