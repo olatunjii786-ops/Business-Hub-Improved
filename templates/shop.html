@@ -202,6 +202,8 @@
                     <p id="boutique-bio" class="store-bio">Boutique Bio Description Paragraph Details...</p>
                 </div>
             </div>
+            <div id="boutique-delivery-info" style="display:none; margin-top:8px; padding:10px; background:var(--card-bg); border-radius:10px; font-size:12px; color:var(--hint);"></div>
+            <button id="store-contact-btn" onclick="contactCurrentStoreSeller()" style="display:none; width:100%; margin-top:10px; padding:10px; border:none; border-radius:12px; background:#25D366; color:white; font-weight:700; font-size:13px; cursor:pointer;">💬 Message Seller on WhatsApp</button>
         </div>
 
         <h3 class="order-history-header" id="feed-context-title">Product Feed</h3>
@@ -238,6 +240,7 @@
         </div>
 
         <button class="action-submit-btn" id="drawer-action-main-btn" onclick="addSelectedToCart()">Add To Shopping Bag</button>
+        <button id="drawer-contact-seller-btn" onclick="contactProductSeller()" style="width:100%; margin-top:8px; padding:10px; border:none; border-radius:12px; background:#25D366; color:white; font-weight:700; font-size:13px; cursor:pointer;">💬 Ask Seller a Question</button>
     </div>
 
     <div class="bottom-drawer" id="checkout-drawer">
@@ -286,6 +289,8 @@
         let runningTargetProductObj = null;
         let selectedSizeString = "";
         let runningQtyInt = 1;
+        let currentStoreVendorPhone = null;
+        let vendorPhoneLookup = {}; // vendor_id -> phone, used in marketplace mode
 
         async function bootStorefront() {
             const startupParamVendorId = (tg.initDataUnsafe && tg.initDataUnsafe.start_param) ? tg.initDataUnsafe.start_param : null;
@@ -309,12 +314,23 @@
                     document.getElementById("boutique-name").innerText = config.vendor.name;
                     document.getElementById("boutique-bio").innerText = config.vendor.bio || "No boutique bio updated.";
                     document.getElementById("boutique-logo").src = config.vendor.logo || "";
+                    currentStoreVendorPhone = config.vendor.phone || null;
+                    renderStoreContactButton();
+
+                    const deliveryBlock = document.getElementById("boutique-delivery-info");
+                    if (config.vendor.delivery_info) {
+                        deliveryBlock.innerText = `🚚 ${config.vendor.delivery_info}`;
+                        deliveryBlock.style.display = "block";
+                    } else {
+                        deliveryBlock.style.display = "none";
+                    }
                     
                     catalogMasterData = config.products || [];
                 } else {
                     catalogMasterData = config.products || [];
                     compileDiscoveryCategories(catalogMasterData);
                     compileVendorsCarousel(config.vendors || []);
+                    (config.vendors || []).forEach(v => { vendorPhoneLookup[v.id] = v.phone; });
                 }
 
                 filteredCatalog = [...catalogMasterData];
@@ -506,6 +522,46 @@
             closeProductDrawer();
             updateCartNavigationUI();
             tg.HapticFeedback.notificationOccurred('success');
+        }
+
+        function buildWhatsappSellerLink(rawPhone, prefilledText) {
+            let formatted = (rawPhone || "").replace(/\D/g, '');
+            if (formatted.startsWith('0')) {
+                formatted = '234' + formatted.substring(1);
+            }
+            return `https://wa.me/${formatted}?text=${encodeURIComponent(prefilledText)}`;
+        }
+
+        function renderStoreContactButton() {
+            const btn = document.getElementById("store-contact-btn");
+            if (currentStoreVendorPhone) {
+                btn.style.display = "block";
+            } else {
+                btn.style.display = "none";
+            }
+        }
+
+        function contactCurrentStoreSeller() {
+            if (!currentStoreVendorPhone) return;
+            tg.HapticFeedback.impactOccurred('light');
+            const boutiqueName = document.getElementById("boutique-name").innerText;
+            const text = `Hi ${boutiqueName}, I have a question about your products on Business Hub!`;
+            tg.openLink(buildWhatsappSellerLink(currentStoreVendorPhone, text));
+        }
+
+        function contactProductSeller() {
+            if (!runningTargetProductObj) return;
+            tg.HapticFeedback.impactOccurred('light');
+
+            // In store mode we already know the phone; in marketplace mode look it up by vendor_id
+            const phone = currentStoreVendorPhone || vendorPhoneLookup[runningTargetProductObj.vendor_id];
+            if (!phone) {
+                tg.showAlert("This seller hasn't set up a contact number yet.");
+                return;
+            }
+
+            const text = `Hi, I'm interested in "${runningTargetProductObj.title}" (₦${runningTargetProductObj.price.toLocaleString()}) on Business Hub. Is it still available?`;
+            tg.openLink(buildWhatsappSellerLink(phone, text));
         }
 
         function updateCartNavigationUI() {

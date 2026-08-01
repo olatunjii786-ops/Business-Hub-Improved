@@ -146,6 +146,10 @@
                     <textarea id="reg-bio" class="form-control" placeholder="Tell customers what you sell..." rows="2"></textarea>
                 </div>
                 <div class="form-group">
+                    <label>Delivery Details (Optional)</label>
+                    <textarea id="reg-delivery-info" class="form-control" placeholder="e.g. We deliver within Lagos in 2-3 business days. Outside Lagos: 5-7 days." rows="2"></textarea>
+                </div>
+                <div class="form-group">
                     <label>Store Brand Logo Image File</label>
                     <input type="file" id="reg-logo" class="form-control" accept="image/*">
                 </div>
@@ -244,6 +248,10 @@
                     <div class="form-group">
                         <label>Store Bio Paragraph</label>
                         <textarea id="edit-bio" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Delivery Details (Optional)</label>
+                        <textarea id="edit-delivery-info" class="form-control" placeholder="e.g. We deliver within Lagos in 2-3 business days." rows="2"></textarea>
                     </div>
                     <div class="form-group">
                         <label>Update Logo File</label>
@@ -349,6 +357,7 @@
                     document.getElementById("edit-name").value = data.business_name;
                     document.getElementById("edit-phone").value = data.phone_number;
                     document.getElementById("edit-bio").value = data.bio || "";
+                    document.getElementById("edit-delivery-info").value = data.delivery_info || "";
                     document.getElementById("prof-preview-name").innerText = data.business_name;
                     document.getElementById("prof-preview-logo").src = data.logo_url || "";
                     document.getElementById("prof-preview-link").innerText = `🔗 Copy Shop Deep-Link`;
@@ -398,6 +407,7 @@
             formData.append("business_name", document.getElementById(`${prefix}name`).value);
             formData.append("phone_number", document.getElementById(`${prefix}phone`).value);
             formData.append("bio", document.getElementById(`${prefix}bio`).value);
+            formData.append("delivery_info", document.getElementById(`${prefix}delivery-info`).value);
             
             if (!isEdit) {
                 formData.append("bank_code", document.getElementById("reg-bank-code").value);
